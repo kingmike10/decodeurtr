@@ -11,4 +11,5 @@ public interface DecodeurRepository extends JpaRepository<Decodeur,Long> {
     List<Decodeur> findByClientIsNotNull();
     List<Decodeur> findByClientIsNull();
 
+    List<Decodeur> findByClientId(Long idClient);
 }

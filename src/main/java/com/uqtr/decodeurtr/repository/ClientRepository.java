@@ -9,7 +9,7 @@ import java.util.Optional;
 
 @Repository
 public interface ClientRepository  extends JpaRepository<Client, Long> {
-        boolean existsByIdentifiantConnexion(String identifiantConnexion);
+        boolean existsByNomClientAndAdresse(String nomClient, String adresse);
 
 }
 

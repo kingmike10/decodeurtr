@@ -11,12 +11,10 @@ import java.util.Optional;
 @Service
 public class AuthService {
 
-    private final UtilisateurRepository utilisateurRepository;
-    private LoginRequestDTO loginRequestDTO;
+    private final UtilisateurRepository utilisateurRepository;;
 
-    public AuthService(UtilisateurRepository utilisateurRepository,LoginRequestDTO loginRequestDTO) {
+    public AuthService(UtilisateurRepository utilisateurRepository) {
         this.utilisateurRepository = utilisateurRepository;
-        this.loginRequestDTO = loginRequestDTO;
     }
 
     public LoginResponseDTO authentifier(LoginRequestDTO loginRequestDTO) {
@@ -41,7 +39,7 @@ public class AuthService {
             return new LoginResponseDTO(false, "Mot de passe incorrect");
         }
 
-        return new LoginResponseDTO(true, "Authentification réussie");
+        return new LoginResponseDTO(true, "Authentification réussie", utilisateur.getRole(),utilisateur.getIdentifiantConnexion());
     }
 
 }

@@ -59,7 +59,7 @@ public class SimulateurDecodeurService {
         }
     }
 
-    public SimulateurResetResponseDTO reinitialiserDecodeur(String adresseIp) {
+    public SimulateurResetResponseDTO resetDecodeur(String adresseIp) {
         String url = "https://wflageol-uqtr.net/decoder";
 
         SimulateurRequestDTO requestBody = new SimulateurRequestDTO(

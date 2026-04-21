@@ -16,7 +16,8 @@ public interface DecodeurService {
     List<DecoderAvailableResponseDTO> getAllAvailableDecoders();
     RemoveDecoderResponseDTO removeDecoder(Long decoderId);
     EtatDecodeurResponseDTO getEtatDecodeur(Long decodeurId);
-    ResetDecodeurResponseDTO resetDecoder(Long decodeurId);
+    OperationDecodeurResponseDTO restartDecoder(Long decodeurId);
     GetChainesResponseDTO getChaines(Long idDecodeur);
+    AdminClientDecodeursDTO getDecodeursByClient(Long idClient);
 
 }

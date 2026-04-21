@@ -18,12 +18,12 @@ public class DecodeurController {
         this.decodeurService = decodeurService;
     }
 
-    @GetMapping("/listAssigned")
+    @GetMapping("/assigned")
     public ResponseEntity getAllAssignedDecoders() {
         return ResponseEntity.ok(decodeurService.getAllAssignedDecoders());
     }
 
-    @GetMapping("/listUnassigned")
+    @GetMapping("/available")
     public ResponseEntity getAllUnassignedDecoders() {
         return ResponseEntity.ok(decodeurService.getAllAvailableDecoders());
     }
@@ -38,7 +38,7 @@ public class DecodeurController {
         );
     }
 
-    @GetMapping("/getDecoderByClient/{clientId}")
+    @GetMapping("/client/{clientId}")
     public ResponseEntity getDecoderByClient(@PathVariable Long clientId) {
         return ResponseEntity.ok(decodeurService.getAllDecodersByClient(clientId));
     }
@@ -53,9 +53,9 @@ public class DecodeurController {
         return ResponseEntity.ok(decodeurService.getEtatDecodeur(idDecodeur));
     }
 
-    @PutMapping("/reset/{idDecodeur}")
-    public ResponseEntity resetDecodeur(@PathVariable Long idDecodeur) {
-        return ResponseEntity.ok(decodeurService.resetDecoder(idDecodeur));
+    @PutMapping("/restart/{idDecodeur}")
+    public ResponseEntity restartDecodeur(@PathVariable Long idDecodeur) {
+        return ResponseEntity.ok(decodeurService.restartDecoder(idDecodeur));
     }
 
     @PostMapping("/ajouterChaine")

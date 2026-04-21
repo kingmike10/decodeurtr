@@ -1,12 +1,17 @@
 package com.uqtr.decodeurtr.service.decodeur;
 
 import com.uqtr.decodeurtr.dto.*;
+
 import com.uqtr.decodeurtr.entity.Client;
 import com.uqtr.decodeurtr.entity.Decodeur;
+import com.uqtr.decodeurtr.entity.EtatDecodeur;
 import com.uqtr.decodeurtr.repository.ClientRepository;
 import com.uqtr.decodeurtr.repository.DecodeurRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,7 +20,7 @@ public class DecodeurServiceImpl implements DecodeurService {
 
 
     private final SimulateurDecodeurService simulateur;
-    private final DecodeurRepository decodeurRepository;
+    private final com.uqtr.decodeurtr.repository.DecodeurRepository decodeurRepository;
     private final ClientRepository clientRepository;
 
 
@@ -25,26 +30,64 @@ public class DecodeurServiceImpl implements DecodeurService {
         this.clientRepository = clientRepository;
     }
 
+    @Override
+    public AdminClientDecodeursDTO getDecodeursByClient(Long idClient) {
+        Client client = clientRepository.findById(idClient)
+                .orElseThrow(() -> new RuntimeException("Client introuvable"));
+
+        List<Decodeur> decodeurs = decodeurRepository.findByClientId(idClient);
+
+        List<DecodeurAdminInfoDTO> decodeurDtos = decodeurs.stream()
+                .map(decodeur -> {
+                    List<String> chaines = new ArrayList<>();
+
+                    if (decodeur.getModuleContenu() != null && decodeur.getModuleContenu().getChaines() != null) {
+                        chaines = decodeur.getModuleContenu().getChaines();
+                    }
+
+                    return new DecodeurAdminInfoDTO(
+                            decodeur.getId(),
+                            decodeur.getAdresseIp(),
+                            decodeur.getEtat().name(),
+                            chaines
+                    );
+                })
+                .toList();
+
+        return new AdminClientDecodeursDTO(
+                client.getId(),
+                client.getNomClient(),
+                decodeurDtos
+        );
+    }
 
 
     @Override
     public List<DecoderAssignedResponseDTO> getAllAssignedDecoders() {
         List<Decodeur> decodeursAttribues = decodeurRepository.findByClientIsNotNull();
-        return decodeursAttribues.stream().map(decodeur -> new DecoderAssignedResponseDTO(
-                decodeur.getAdresseIp(),decodeur.getEtat().name(),decodeur.getClient().getId(),
-                decodeur.getClient().getNomClient()
-        )
-        ).toList();
 
+        return decodeursAttribues.stream()
+                .map(decodeur -> new DecoderAssignedResponseDTO(
+                        decodeur.getId(),
+                        decodeur.getAdresseIp(),
+                        decodeur.getEtat().name(),
+                        decodeur.getClient().getId(),
+                        decodeur.getClient().getNomClient()
+                ))
+                .toList();
     }
 
     @Override
     public List<DecoderAvailableResponseDTO> getAllAvailableDecoders() {
         List<Decodeur> decodeursDisponibles = decodeurRepository.findByClientIsNull();
-        return decodeursDisponibles.stream().map(decodeur -> new DecoderAvailableResponseDTO(
-                        decodeur.getAdresseIp(),decodeur.getEtat().name()
-                )
-        ).toList();
+
+        return decodeursDisponibles.stream()
+                .map(decodeur -> new DecoderAvailableResponseDTO(
+                        decodeur.getId(),
+                        decodeur.getAdresseIp(),
+                        decodeur.getEtat().name()
+                ))
+                .toList();
     }
 
     @Override
@@ -67,33 +110,42 @@ public class DecodeurServiceImpl implements DecodeurService {
         Decodeur decodeur = decodeurRepository.findById(decodeurId)
                 .orElseThrow(() -> new RuntimeException("Décodeur introuvable"));
 
-        SimulateurInfoResponseDTO response= simulateur.obtenirEtat(decodeur.getAdresseIp());
-
+        SimulateurInfoResponseDTO response = simulateur.obtenirEtat(decodeur.getAdresseIp());
 
         if (!"OK".equalsIgnoreCase(response.getResponse())) {
             throw new RuntimeException("Erreur simulateur : " + response.getMessage());
         }
 
-        return new EtatDecodeurResponseDTO(decodeur.getAdresseIp(),response.getState(),
-                response.getLastRestart(), response.getLastReinit()
-        );
+        EtatDecodeur etat = EtatDecodeur.fromSimulateurState(response.getState());
+        decodeur.setEtat(etat);
+        decodeurRepository.save(decodeur);
 
+        return new EtatDecodeurResponseDTO(
+                decodeur.getId(),
+                decodeur.getAdresseIp(),
+                etat.name(),
+                response.getLastRestart(),
+                response.getLastReinit()
+        );
     }
 
     @Override
-    public ResetDecodeurResponseDTO resetDecoder(Long decodeurId) {
-
+    public OperationDecodeurResponseDTO restartDecoder(Long decodeurId) {
         Decodeur decodeur = decodeurRepository.findById(decodeurId)
                 .orElseThrow(() -> new RuntimeException("Décodeur introuvable"));
 
-        SimulateurResetResponseDTO response= simulateur.reinitialiserDecodeur(decodeur.getAdresseIp());
-
+        // 1. Envoyer l'ordre de reset (le simulateur commence ses 10-30s)
+        SimulateurResetResponseDTO response = simulateur.resetDecodeur(decodeur.getAdresseIp());
 
         if (!"OK".equalsIgnoreCase(response.getResponse())) {
-            throw new RuntimeException("Erreur simulateur : " + response.getMessage());
+            return new OperationDecodeurResponseDTO("Erreur simulateur", false);
         }
 
-        return new ResetDecodeurResponseDTO(response.getResponse());
+        // 2. On met l'état à HORS_LIGNE en base car il est en train de redémarrer
+        decodeur.setEtat(EtatDecodeur.HORS_LIGNE);
+        decodeurRepository.save(decodeur);
+
+        return new OperationDecodeurResponseDTO("Redémarrage en cours (10-30s)...", true);
     }
 
     @Override
@@ -166,16 +218,48 @@ public class DecodeurServiceImpl implements DecodeurService {
     }
 
 
+    @Transactional
     @Override
     public List<AllDecodersByClientResponseDTO> getAllDecodersByClient(Long idClient) {
-        Client client = clientRepository.findById(idClient)
-                .orElseThrow(() -> new RuntimeException("Client introuvable"));
+        // 1. On récupère les décodeurs du client en base locale
+        List<Decodeur> decodeurs = decodeurRepository.findByClientIsNotNull().stream()
+                .filter(d -> d.getClient().getId().equals(idClient))
+                .toList();
 
-        return decodeurRepository.findByClientIsNotNull().stream()
-                .filter(decodeur -> decodeur.getClient().getId().equals(client.getId()))
-                .map(decodeur -> new AllDecodersByClientResponseDTO(decodeur.getAdresseIp(),decodeur.getEtat().name(),
-                        decodeur.getLastRestart(), decodeur.getLastReinit()
-                )).toList();
+        DateTimeFormatter profFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        // 2. Pour chaque décodeur, on va chercher la "vérité" chez le simulateur
+        return decodeurs.stream().map(decodeur -> {
+            try {
+                // APPEL AU SIMULATEUR
+                SimulateurInfoResponseDTO infoReelle = simulateur.obtenirEtat(decodeur.getAdresseIp());
+
+                if (infoReelle != null && infoReelle.getLastRestart() != null) {
+
+                    String state = infoReelle.getState();
+                    decodeur.setEtat(EtatDecodeur.fromSimulateurState(state)); // On met à jour l'état en fonction du simulateur
+                    // On utilise le formatter pour lire la date avec l'espace et les secondes
+                    LocalDateTime restart = LocalDateTime.parse(infoReelle.getLastRestart(), profFormatter);
+                    LocalDateTime reinit = LocalDateTime.parse(infoReelle.getLastReinit(), profFormatter);
+                        decodeur.setLastRestart(restart);
+                        decodeur.setLastReinit(reinit);
+
+                    decodeurRepository.save(decodeur); // On écrase les anciennes dates SQL
+                }
+            } catch (Exception e) {
+                // Si le simulateur ne répond pas, on garde les dates de la BD (on ne crash pas)
+                System.err.println("Erreur synchro pour " + decodeur.getAdresseIp() + " : " + e.getMessage());
+            }
+
+            // 3. On retourne le DTO avec les dates fraîches
+            return new AllDecodersByClientResponseDTO(
+                    decodeur.getId(),
+                    decodeur.getAdresseIp(),
+                    decodeur.getEtat().name(),
+                    decodeur.getLastRestart() != null ? decodeur.getLastRestart().format(profFormatter).toString() : "N/A",
+                    decodeur.getLastReinit() != null ? decodeur.getLastReinit().format(profFormatter).toString() : "N/A"
+            );
+        }).toList();
     }
 
     @Override

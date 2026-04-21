@@ -9,12 +9,14 @@ import java.time.LocalDateTime;
 @Getter @Setter
 public class AllDecodersByClientResponseDTO {
 
+    private Long id;
     private String adresseIp;
     private String etat;
-    private LocalDateTime lastRestart;
-    private LocalDateTime lastReinit;
+    private String  lastRestart;
+    private String lastReinit;
 
-        public AllDecodersByClientResponseDTO(String adresseIp, String etat, LocalDateTime lastRestart, LocalDateTime lastReinit) {
+        public AllDecodersByClientResponseDTO(Long id,String adresseIp, String etat, String lastRestart, String lastReinit) {
+            this.id = id;
             this.adresseIp = adresseIp;
             this.etat = etat;
             this.lastRestart = lastRestart;

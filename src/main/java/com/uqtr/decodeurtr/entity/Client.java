@@ -19,26 +19,14 @@ public class Client {
     @Column(name="nom_client",nullable = false)
     private String nomClient;
 
-    @Column(nullable = false, unique = true)
-    private String identifiantConnexion;
+    @Column(name="adresse_client",nullable = false)
+    private String adresse;
 
-    @Column(nullable = false)
-    private String motDePasse;
-
-    @Column(nullable = false)
-    private String nomAffichage;
+    @OneToOne(mappedBy = "client", cascade = CascadeType.ALL)
+    private Utilisateur utilisateur;
 
     @OneToMany(mappedBy = "client", cascade = CascadeType.ALL)
     private List<Decodeur> decodeurs;
-
-
-
-    public Client(String nomClient, String identifiantConnexion, String motDePasse, String nomAffichage) {
-        this.nomClient = nomClient;
-        this.identifiantConnexion = identifiantConnexion;
-        this.motDePasse = motDePasse;
-        this.nomAffichage = nomAffichage;
-    }
 
     public Client() {
 

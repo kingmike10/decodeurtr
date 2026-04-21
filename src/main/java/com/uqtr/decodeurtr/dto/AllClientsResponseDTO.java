@@ -8,15 +8,15 @@ import java.util.List;
 @Getter @Setter
 public class AllClientsResponseDTO {
 
-    private String idConnexion;
+    private Long id;
+    private String adresse;
     private String nomClient;
-    // Liste des IDs des décodeurs associés au client
     private List<Long> decodeurIds;
 
-    public AllClientsResponseDTO(String idConnexion, String nomClient, List<Long> decodeurIds) {
-        this.idConnexion = idConnexion;
+    public AllClientsResponseDTO(Long id, String nomClient, String adresse, List<Long> decodeurIds) {
+        this.id = id;
+        this.adresse = adresse;
         this.nomClient = nomClient;
         this.decodeurIds = decodeurIds;
     }
-
 }

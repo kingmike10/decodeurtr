@@ -21,13 +21,17 @@ public class Utilisateur {
     @Column(name = "mot_de_passe", nullable = false, length = 255)
     private String motDePasse;
 
-    @Column(name = "nom_affichage", nullable = false, length = 100)
-    private String nomAffichage;
-
     @Column(name = "role", nullable = false, length = 50)
     private String role;
 
     @Column(name = "actif", nullable = false)
     private Boolean actif = true;
 
+    @OneToOne
+    @JoinColumn(name="id_client", nullable = true)
+    private Client client;
+
+    public Utilisateur() {
+
+    }
 }

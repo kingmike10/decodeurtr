@@ -4,10 +4,10 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Getter @Setter
-public class ResetDecodeurResponseDTO {
+public class RestartDecodeurResponseDTO {
     private String response;
 
-    public ResetDecodeurResponseDTO(String response) {
+    public RestartDecodeurResponseDTO(String response) {
         this.response = response;
     }
 }

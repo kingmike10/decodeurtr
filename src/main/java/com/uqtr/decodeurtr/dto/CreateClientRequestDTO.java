@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 public class CreateClientRequestDTO {
 
     private String nomClient;
+    private String adresse;
     private String identifiantConnexion;
     private String motDePasse;
-    private String nomAffichage;
 }
