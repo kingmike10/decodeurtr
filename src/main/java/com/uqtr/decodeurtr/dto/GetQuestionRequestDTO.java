@@ -1,10 +1,6 @@
 package com.uqtr.decodeurtr.dto;
 import lombok.Getter; import lombok.Setter;
-
 @Getter @Setter
-public class CreateClientRequestDTO {
-    private String nomClient;
-    private String adresse;
+public class GetQuestionRequestDTO {
     private String identifiantConnexion;
-    private String motDePasse;
 }

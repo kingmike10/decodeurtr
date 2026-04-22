@@ -9,14 +9,15 @@ import java.util.List;
 public class AllClientsResponseDTO {
 
     private Long id;
-    private String adresse;
     private String nomClient;
+    private String adresse;
     private List<Long> decodeurIds;
 
-    public AllClientsResponseDTO(Long id, String nomClient, String adresse, List<Long> decodeurIds) {
+    public AllClientsResponseDTO(Long id, String nomClient, String adresse,
+                                 String identifiantConnexion, List<Long> decodeurIds) {
         this.id = id;
-        this.adresse = adresse;
         this.nomClient = nomClient;
+        this.adresse = adresse;
         this.decodeurIds = decodeurIds;
     }
 }

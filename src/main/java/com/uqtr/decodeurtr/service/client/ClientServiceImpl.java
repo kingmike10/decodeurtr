@@ -5,32 +5,55 @@ import com.uqtr.decodeurtr.entity.Client;
 import com.uqtr.decodeurtr.entity.Decodeur;
 import com.uqtr.decodeurtr.entity.Utilisateur;
 import com.uqtr.decodeurtr.repository.ClientRepository;
+import com.uqtr.decodeurtr.repository.DecodeurRepository;
 import com.uqtr.decodeurtr.repository.UtilisateurRepository;
 import com.uqtr.decodeurtr.service.decodeur.DecodeurService;
-import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Implémentation de ClientService gérant le cycle de vie des clients.
+ *
+ * Responsabilités : création d'un client avec son compte utilisateur,
+ * consultation de la liste et du tableau de bord, suppression avec
+ * désassignation préalable des décodeurs.
+ */
 @Service
-public class ClientServiceImpl implements ClientService{
+public class ClientServiceImpl implements ClientService {
 
-    private UtilisateurRepository utilisateurRepository;
-    private ClientRepository clientRepository;
-    private DecodeurService decodeurService;
+    private final UtilisateurRepository utilisateurRepository;
+    private final ClientRepository      clientRepository;
+    private final DecodeurRepository    decodeurRepository;
+    private final DecodeurService       decodeurService;
+    private final PasswordEncoder       passwordEncoder;
 
-    public ClientServiceImpl(ClientRepository clientRepository,UtilisateurRepository utilisateurRepository,DecodeurService decodeurService) {
-        this.clientRepository = clientRepository;
+    public ClientServiceImpl(ClientRepository clientRepository,
+                             UtilisateurRepository utilisateurRepository,
+                             DecodeurRepository decodeurRepository,
+                             DecodeurService decodeurService,
+                             PasswordEncoder passwordEncoder) {
+        this.clientRepository      = clientRepository;
         this.utilisateurRepository = utilisateurRepository;
-        this.decodeurService = decodeurService;
+        this.decodeurRepository    = decodeurRepository;
+        this.decodeurService       = decodeurService;
+        this.passwordEncoder       = passwordEncoder;
     }
 
+    /**
+     * Crée un client et son compte utilisateur en une seule transaction.
+     *
+     * Le mot de passe est hashé avec BCrypt avant persistance.
+     * La cascade CascadeType.ALL sur la relation Client → Utilisateur
+     * garantit que les deux entités sont sauvegardées en un seul appel.
+     */
     @Transactional
     @Override
     public CreateClientResponseDTO createClient(CreateClientRequestDTO request) {
 
-        // 1. Validation de présence des données
+        // Validation des champs obligatoires
         if (request.getNomClient() == null || request.getNomClient().isBlank()
                 || request.getAdresse() == null || request.getAdresse().isBlank()
                 || request.getMotDePasse() == null || request.getMotDePasse().isBlank()
@@ -38,97 +61,107 @@ public class ClientServiceImpl implements ClientService{
             throw new RuntimeException("Tous les champs sont obligatoires.");
         }
 
-        // 2. VÉRIFICATION D'UNICITÉ
-        // L'identifiant est le pivot : s'il existe en tant qu'admin ou client, on bloque.
+        // Vérification de l'unicité de l'identifiant toutes tables confondues
         if (utilisateurRepository.existsByIdentifiantConnexion(request.getIdentifiantConnexion())) {
-            throw new RuntimeException("Erreur : Cet identifiant est déjà utilisé par un autre utilisateur.");
+            throw new RuntimeException("Cet identifiant est déjà utilisé.");
         }
 
-        // 3. Création du CLIENT
         Client client = new Client();
         client.setNomClient(request.getNomClient());
         client.setAdresse(request.getAdresse());
 
-        // 4. Création de l'UTILISATEUR (Lié au client)
         Utilisateur utilisateur = new Utilisateur();
         utilisateur.setIdentifiantConnexion(request.getIdentifiantConnexion());
-        utilisateur.setMotDePasse(request.getMotDePasse());
+        utilisateur.setMotDePasse(passwordEncoder.encode(request.getMotDePasse()));
         utilisateur.setRole("CLIENT");
         utilisateur.setActif(true);
 
-        // 5. Établir le lien bidirectionnel
-        // Très important : l'utilisateur pointe vers le client ET le client vers l'utilisateur
+        // Établissement du lien bidirectionnel avant persistance
         utilisateur.setClient(client);
         client.setUtilisateur(utilisateur);
-
-        // 6. Sauvegarde
-        // Grâce au CascadeType.ALL sur la relation dans l'entité Client,
-        // sauvegarder le client créera automatiquement l'entrée dans la table utilisateur.
         clientRepository.save(client);
 
         return new CreateClientResponseDTO("Client créé avec succès.", true);
     }
 
+    /**
+     * Construit le tableau de bord d'un client à partir de son identifiant.
+     *
+     * L'état de chaque décodeur est synchronisé en temps réel avec le
+     * simulateur externe via DecodeurService.getAllDecodersByClient().
+     */
+    @Override
     public ClientDashboardDTO getDashboardData(String identifiant) {
         Utilisateur user = utilisateurRepository.findByIdentifiantConnexion(identifiant)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
         Client c = user.getClient();
-        if (c == null) {
-            throw new RuntimeException("Profil client introuvable");
-        }
+        if (c == null) throw new RuntimeException("Profil client introuvable");
 
         List<AllDecodersByClientResponseDTO> decodersStatus =
                 decodeurService.getAllDecodersByClient(c.getId());
 
         List<ClientDashboardDTO.DecodeurInfo> infos = decodersStatus.stream()
                 .map(d -> new ClientDashboardDTO.DecodeurInfo(
-                        d.getId(),
-                        d.getAdresseIp(),
-                        d.getEtat(),
-                        d.getLastRestart(),
-                        d.getLastReinit()
-                ))
+                        d.getId(), d.getAdresseIp(), d.getEtat(),
+                        d.getLastRestart(), d.getLastReinit()))
                 .toList();
 
         ClientDashboardDTO dto = new ClientDashboardDTO();
         dto.setNomClient(c.getNomClient());
         dto.setDecodeurs(infos);
         dto.setNbTotal(infos.size());
-        dto.setNbActifs(infos.stream()
-                .filter(dec -> "EN_LIGNE".equals(dec.getEtat()))
-                .count());
-
+        dto.setNbActifs(infos.stream().filter(d -> "EN_LIGNE".equals(d.getEtat())).count());
         return dto;
     }
+
+    /**
+     * Retourne la liste de tous les clients avec leur identifiant de connexion
+     * et les identifiants de leurs décodeurs assignés.
+     */
     @Override
     public List<AllClientsResponseDTO> getAllClients() {
-        var clients = clientRepository.findAll();
-        return clients.stream()
-                .map(client -> {
-                    var decodeurIds = client.getDecodeurs() == null ? List.<Long>of() :
-                            client.getDecodeurs().stream()
-                                    .map(decodeur -> decodeur.getId())
-                                    .toList();
-                    return new AllClientsResponseDTO(
-                            client.getId(),
-                            client.getNomClient(),
-                            client.getAdresse(),
-                            decodeurIds
-                    );
-                })
+        return clientRepository.findAll().stream()
+                .map(client -> new AllClientsResponseDTO(
+                        client.getId(),
+                        client.getNomClient(),
+                        client.getAdresse(),
+                        client.getUtilisateur() != null
+                                ? client.getUtilisateur().getIdentifiantConnexion() : null,
+                        client.getDecodeurs() == null ? List.of() :
+                                client.getDecodeurs().stream().map(Decodeur::getId).toList()
+                ))
                 .toList();
     }
 
+    /**
+     * Supprime un client en deux étapes dans la même transaction :
+     * 1. Désassignation de tous ses décodeurs (setClient à null)
+     * 2. Suppression du client (cascade vers son compte utilisateur)
+     *
+     * Les décodeurs ne sont pas supprimés — ils redeviennent disponibles.
+     */
+    @Transactional
     @Override
     public DeleteClientResponse deleteClient(Long idClient) {
         try {
-            clientRepository.deleteById(idClient);
-            return new DeleteClientResponse(idClient,true, "Client supprimé avec succès.");
-        } catch (EmptyResultDataAccessException e) {
-            return new DeleteClientResponse(idClient,false, "Client introuvable.");
+            Client client = clientRepository.findById(idClient)
+                    .orElseThrow(() -> new RuntimeException("Client introuvable."));
+
+            List<Decodeur> decodeurs = decodeurRepository.findByClientId(idClient);
+            for (Decodeur d : decodeurs) {
+                d.setClient(null);
+                decodeurRepository.save(d);
+            }
+
+            clientRepository.delete(client);
+            return new DeleteClientResponse(idClient, true,
+                    "Client supprimé. " + decodeurs.size() + " décodeur(s) remis disponibles.");
+
+        } catch (RuntimeException e) {
+            return new DeleteClientResponse(idClient, false, e.getMessage());
         } catch (Exception e) {
-            return new DeleteClientResponse(idClient,false, "Erreur lors de la suppression du client.");
+            return new DeleteClientResponse(idClient, false, "Erreur lors de la suppression.");
         }
     }
 }

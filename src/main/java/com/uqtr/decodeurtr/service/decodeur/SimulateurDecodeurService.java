@@ -1,100 +1,113 @@
 package com.uqtr.decodeurtr.service.decodeur;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uqtr.decodeurtr.dto.SimulateurInfoResponseDTO;
 import com.uqtr.decodeurtr.dto.SimulateurRequestDTO;
 import com.uqtr.decodeurtr.dto.SimulateurResetResponseDTO;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
+
+/**
+ * Service d'accès à l'API REST du simulateur de décodeurs.
+ *
+ * Centralise toutes les communications avec le simulateur externe disponible
+ * à l'adresse https://wflageol-uqtr.net/decoder. Chaque opération physique
+ * sur un décodeur (état, redémarrage, réinitialisation, extinction) transite
+ * par ce service, isolant ainsi le reste de l'application des détails
+ * du protocole de communication externe.
+ *
+ * Le simulateur retourne parfois un content-type non standard (text/json).
+ * La désérialisation est donc effectuée manuellement via ObjectMapper
+ * plutôt que de laisser Spring la gérer automatiquement.
+ */
 @Service
 public class SimulateurDecodeurService {
 
+    private static final String SIMULATEUR_URL = "https://wflageol-uqtr.net/decoder";
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /**
+     * Code permanent identifiant l'équipe auprès du simulateur.
+     * Externalisé dans application.properties sous la clé simulateur.code-permanent.
+     */
+    @Value("${simulateur.code-permanent:ANAM82290400}")
+    private String codePermanent;
 
     public SimulateurDecodeurService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
 
-    public SimulateurInfoResponseDTO obtenirEtat(String adresseIp) {
-        String url = "https://wflageol-uqtr.net/decoder";
-
-        SimulateurRequestDTO requestBody = new SimulateurRequestDTO(
-                "ANAM82290400",
-                adresseIp,
-                "info"
-        );
-
+    /**
+     * Construit la requête HTTP à envoyer au simulateur.
+     * Accepte application/json et application/json;charset=utf-8 pour
+     * absorber les variations de content-type retournées par le simulateur.
+     *
+     * @param adresseIp l'adresse IP du décodeur cible
+     * @param action    l'opération à effectuer (info, reset, reinit, shutdown)
+     * @return l'entité HTTP prête à être envoyée
+     */
+    private HttpEntity<SimulateurRequestDTO> buildRequest(String adresseIp, String action) {
+        SimulateurRequestDTO body = new SimulateurRequestDTO(codePermanent, adresseIp, action);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        // Accepter application/json et text/json;charset=utf-8
-        headers.setAccept(java.util.List.of(
+        headers.setAccept(List.of(
                 MediaType.APPLICATION_JSON,
                 MediaType.parseMediaType("application/json;charset=utf-8")
         ));
-
-        HttpEntity<SimulateurRequestDTO> entity = new HttpEntity<>(requestBody, headers);
-
-        // Obtenir la réponse en String puis désérialiser manuellement pour gérer les content-types non-standard
-        ResponseEntity<String> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                entity,
-                String.class
-        );
-
-        String body = response.getBody();
-        try {
-            if (body == null || body.isBlank()) {
-                throw new RuntimeException("Réponse vide du simulateur");
-            }
-            // Désérialisation manuelle — ObjectMapper gère application/json même si le serveur envoie text/json
-            return objectMapper.readValue(body, SimulateurInfoResponseDTO.class);
-        } catch (Exception e) {
-            throw new RuntimeException("Erreur lors de la désérialisation de la réponse du simulateur: " + e.getMessage(), e);
-        }
+        return new HttpEntity<>(body, headers);
     }
 
-    public SimulateurResetResponseDTO resetDecodeur(String adresseIp) {
-        String url = "https://wflageol-uqtr.net/decoder";
-
-        SimulateurRequestDTO requestBody = new SimulateurRequestDTO(
-                "ANAM82290400",
-                adresseIp,
-                "reset"
-        );
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setAccept(java.util.List.of(
-                MediaType.APPLICATION_JSON,
-                MediaType.parseMediaType("application/json;charset=utf-8")
-        ));
-
-        HttpEntity<SimulateurRequestDTO> entity = new HttpEntity<>(requestBody, headers);
-
+    /**
+     * Méthode générique d'envoi de requête au simulateur.
+     * Récupère la réponse sous forme de String puis la désérialise
+     * vers le type attendu, évitant les problèmes de content-type non standard.
+     *
+     * @param adresseIp    l'adresse IP du décodeur cible
+     * @param action       l'opération à effectuer
+     * @param responseType le type Java attendu pour la désérialisation
+     * @return la réponse désérialisée du simulateur
+     * @throws RuntimeException si la réponse est vide ou non désérialisable
+     */
+    private <T> T envoyerRequete(String adresseIp, String action, Class<T> responseType) {
         ResponseEntity<String> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                entity,
-                String.class
-        );
+                SIMULATEUR_URL, HttpMethod.POST, buildRequest(adresseIp, action), String.class);
 
-        String body = response.getBody();
+        String bodyStr = response.getBody();
+        if (bodyStr == null || bodyStr.isBlank()) {
+            throw new RuntimeException("Réponse vide du simulateur");
+        }
+
         try {
-            if (body == null || body.isBlank()) {
-                throw new RuntimeException("Réponse vide du simulateur");
-            }
-            return objectMapper.readValue(body, SimulateurResetResponseDTO.class);
-        } catch (JsonMappingException e) {
-            throw new RuntimeException(e);
+            return objectMapper.readValue(bodyStr, responseType);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Erreur désérialisation simulateur : " + e.getMessage(), e);
         }
     }
 
+    /** Interroge le simulateur pour obtenir l'état courant d'un décodeur. */
+    public SimulateurInfoResponseDTO obtenirEtat(String adresseIp) {
+        return envoyerRequete(adresseIp, "info", SimulateurInfoResponseDTO.class);
     }
+
+    /** Envoie un ordre de redémarrage au décodeur (durée : 10 à 30 secondes). */
+    public SimulateurResetResponseDTO resetDecodeur(String adresseIp) {
+        return envoyerRequete(adresseIp, "reset", SimulateurResetResponseDTO.class);
+    }
+
+    /** Réinitialise le mot de passe du décodeur et met à jour la date de réinitialisation. */
+    public SimulateurResetResponseDTO reinitDecodeur(String adresseIp) {
+        return envoyerRequete(adresseIp, "reinit", SimulateurResetResponseDTO.class);
+    }
+
+    /** Envoie un ordre d'extinction au décodeur. */
+    public SimulateurResetResponseDTO shutdownDecodeur(String adresseIp) {
+        return envoyerRequete(adresseIp, "shutdown", SimulateurResetResponseDTO.class);
+    }
+}

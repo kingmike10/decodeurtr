@@ -27,11 +27,16 @@ public class Utilisateur {
     @Column(name = "actif", nullable = false)
     private Boolean actif = true;
 
+
+    @Column(name = "question_secrete", nullable = true, length = 255)
+    private String questionSecrete;
+
+    @Column(name = "reponse_secrete", nullable = true, length = 255)
+    private String reponseSecrete; // hashée avec BCrypt
+
     @OneToOne
-    @JoinColumn(name="id_client", nullable = true)
+    @JoinColumn(name = "id_client", nullable = true)
     private Client client;
 
-    public Utilisateur() {
-
-    }
+    public Utilisateur() {}
 }
