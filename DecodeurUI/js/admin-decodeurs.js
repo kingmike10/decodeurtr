@@ -1,312 +1,150 @@
+const API = "http://localhost:8080";
 let selectedDecodeurId = null;
 let clientsCache = [];
 
-function isDecoderOnline(etat) {
-    return etat === "EN_LIGNE";
+function logout() { localStorage.clear(); window.location.href = "../index.html"; }
+
+function showNotif(msg, isErr = false) {
+  document.querySelector(".notification")?.remove();
+  const n = document.createElement("div");
+  n.className = "notification" + (isErr ? " error" : "");
+  n.innerHTML = `<i class="fas fa-${isErr ? "exclamation-circle" : "check-circle"}"></i> ${msg}`;
+  document.body.appendChild(n);
+  setTimeout(() => { n.style.opacity = "0"; setTimeout(() => n.remove(), 500); }, 4000);
 }
 
-function getStatusLabel(etat) {
-    return isDecoderOnline(etat) ? "En ligne" : "Hors ligne";
+function statusBadge(etat) {
+  const online = etat === "EN_LIGNE";
+  return `<span class="status-badge ${online ? "online" : "offline"}">${online ? "En ligne" : "Hors ligne"}</span>`;
 }
 
-function getStatusClass(etat) {
-    return isDecoderOnline(etat) ? "online" : "offline";
+function renderAssigned(decodeurs) {
+  document.getElementById("assigned-count").textContent = decodeurs.length;
+  const grid = document.getElementById("assigned-grid");
+
+  if (!decodeurs.length) {
+    grid.innerHTML = `<div class="empty-state"><i class="fas fa-tv" style="margin-bottom:8px;display:block;font-size:20px"></i>Aucun décodeur attribué.</div>`;
+    return;
+  }
+
+  grid.innerHTML = decodeurs.map(d => `
+    <div class="decoder-card">
+      <div class="decoder-top">
+        <div class="decoder-left">
+          <div class="decoder-icon"><i class="fas fa-tv"></i></div>
+          <div>
+            <p class="decoder-ip">${d.adresseIp}</p>
+            <p class="decoder-client">${d.nomClient || "Client inconnu"}</p>
+          </div>
+        </div>
+        ${statusBadge(d.etat)}
+      </div>
+      <div class="decoder-actions">
+        <a href="admin-client-decodeurs.html?idClient=${d.idClient}" class="btn-secondary btn-sm">
+          <i class="fas fa-user"></i> Voir client
+        </a>
+        <button class="btn-danger btn-sm" onclick="retirerDecodeur(${d.id})">
+          <i class="fas fa-unlink"></i> Retirer
+        </button>
+      </div>
+    </div>
+  `).join("");
 }
 
-async function fetchAssignedDecoders() {
-    const response = await fetch("http://localhost:8080/api/decoder/assigned", {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json"
-        }
+function renderAvailable(decodeurs) {
+  document.getElementById("available-count").textContent = decodeurs.length;
+  const grid = document.getElementById("available-grid");
+
+  if (!decodeurs.length) {
+    grid.innerHTML = `<div class="empty-state"><i class="fas fa-check-circle" style="margin-bottom:8px;display:block;font-size:20px;color:var(--green)"></i>Tous les décodeurs sont attribués.</div>`;
+    return;
+  }
+
+  grid.innerHTML = decodeurs.map(d => `
+    <div class="decoder-card">
+      <div class="decoder-top">
+        <div class="decoder-left">
+          <div class="decoder-icon"><i class="fas fa-tv"></i></div>
+          <div>
+            <p class="decoder-ip">${d.adresseIp}</p>
+            <p class="decoder-client" style="color:var(--green);font-size:12px">Disponible</p>
+          </div>
+        </div>
+        ${statusBadge(d.etat)}
+      </div>
+      <div class="decoder-actions">
+        <button class="btn-primary btn-sm" onclick="openAssignModal(${d.id}, '${d.adresseIp}')">
+          <i class="fas fa-link"></i> Assigner
+        </button>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function loadPage() {
+  try {
+    const [assigned, available] = await Promise.all([
+      fetch(`${API}/api/decoder/assigned`).then(r => r.json()),
+      fetch(`${API}/api/decoder/available`).then(r => r.json()),
+    ]);
+    renderAssigned(assigned);
+    renderAvailable(available);
+  } catch (e) {
+    document.getElementById("assigned-grid").innerHTML  = `<div class="empty-state error-text">Erreur de chargement.</div>`;
+    document.getElementById("available-grid").innerHTML = `<div class="empty-state error-text">Erreur de chargement.</div>`;
+  }
+}
+
+async function retirerDecodeur(id) {
+  if (!confirm("Retirer ce décodeur de son client ?")) return;
+  try {
+    const res  = await fetch(`${API}/api/decoder/retirer/${id}`, { method: "PUT" });
+    const data = await res.json();
+    showNotif(data.message || "Décodeur retiré.", !data.succes);
+    if (data.succes) loadPage();
+  } catch { showNotif("Erreur lors du retrait.", true); }
+}
+
+async function openAssignModal(id, ip) {
+  selectedDecodeurId = id;
+  document.getElementById("assign-modal-text").textContent = `Décodeur : ${ip}`;
+  const select = document.getElementById("client-select");
+  select.innerHTML = `<option value="">— Choisir un client —</option>`;
+
+  try {
+    clientsCache = await fetch(`${API}/api/admin/clients/all`).then(r => r.json());
+    clientsCache.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.nomClient;
+      select.appendChild(opt);
     });
+  } catch { showNotif("Impossible de charger les clients.", true); return; }
 
-    if (!response.ok) {
-        throw new Error("Impossible de charger les décodeurs attribués");
-    }
-
-    return await response.json();
-}
-
-async function fetchAvailableDecoders() {
-    const response = await fetch("http://localhost:8080/api/decoder/available", {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json"
-        }
-    });
-
-    if (!response.ok) {
-        throw new Error("Impossible de charger les décodeurs disponibles");
-    }
-
-    return await response.json();
-}
-
-async function fetchClients() {
-    const response = await fetch("http://localhost:8080/api/admin/clients/all", {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json"
-        }
-    });
-
-    if (!response.ok) {
-        throw new Error("Impossible de charger les clients");
-    }
-
-    return await response.json();
-}
-
-function renderAssignedDecoders(decodeurs) {
-    const grid = document.getElementById("assigned-grid");
-    const count = document.getElementById("assigned-count");
-
-    if (!grid || !count) return;
-
-    count.textContent = decodeurs.length;
-    grid.innerHTML = "";
-
-    if (!decodeurs.length) {
-        grid.innerHTML = `<div class="empty-state">Aucun décodeur attribué.</div>`;
-        return;
-    }
-
-    decodeurs.forEach(dec => {
-        const statusLabel = getStatusLabel(dec.etat);
-        const statusClass = getStatusClass(dec.etat);
-
-        const card = `
-            <div class="decoder-card">
-                <div class="decoder-top">
-                    <div class="decoder-left">
-                        <div class="decoder-icon">
-                            <i class="fas fa-tv"></i>
-                        </div>
-                        <div>
-                            <p class="decoder-ip">${dec.adresseIp}</p>
-                            <p class="decoder-client">${dec.nomClient || "Client inconnu"}</p>
-                        </div>
-                    </div>
-                    <span class="status-badge ${statusClass}">${statusLabel}</span>
-                </div>
-
-                <div class="decoder-actions">
-                    <button class="btn-secondary" onclick="voirClient(${dec.clientId})">Voir client</button>
-                    <button class="btn-danger" onclick="retirerDecodeur(${dec.id})">Retirer</button>
-                </div>
-            </div>
-        `;
-
-        grid.innerHTML += card;
-    });
-}
-
-function renderAvailableDecoders(decodeurs) {
-    const grid = document.getElementById("available-grid");
-    const count = document.getElementById("available-count");
-
-    if (!grid || !count) return;
-
-    count.textContent = decodeurs.length;
-    grid.innerHTML = "";
-
-    if (!decodeurs.length) {
-        grid.innerHTML = `<div class="empty-state">Aucun décodeur disponible.</div>`;
-        return;
-    }
-
-    decodeurs.forEach(dec => {
-        const statusLabel = getStatusLabel(dec.etat);
-        const statusClass = getStatusClass(dec.etat);
-
-        const card = `
-            <div class="decoder-card">
-                <div class="decoder-top">
-                    <div class="decoder-left">
-                        <div class="decoder-icon">
-                            <i class="fas fa-tv"></i>
-                        </div>
-                        <div>
-                            <p class="decoder-ip">${dec.adresseIp}</p>
-                            <p class="decoder-client">Disponible</p>
-                        </div>
-                    </div>
-                    <span class="status-badge ${statusClass}">${statusLabel}</span>
-                </div>
-
-                <div class="decoder-actions">
-                    <button class="btn-primary" onclick="openAssignModal(${dec.id}, '${dec.adresseIp}')">Assigner</button>
-                </div>
-            </div>
-        `;
-
-        grid.innerHTML += card;
-    });
-}
-
-function voirClient(clientId) {
-    if (!clientId) {
-        alert("Client introuvable.");
-        return;
-    }
-
-    window.location.href = `admin-client-decodeurs.html?idClient=${clientId}`;
-}
-
-async function retirerDecodeur(idDecodeur) {
-    const confirmation = confirm("Voulez-vous vraiment retirer ce décodeur du client ?");
-
-    if (!confirmation) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`http://localhost:8080/api/decoder/retirer/${idDecodeur}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json"
-            }
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.message || "Erreur lors du retrait du décodeur.");
-        }
-
-        alert(result.message || "Décodeur retiré avec succès.");
-        await loadDecodersPage();
-    } catch (error) {
-        console.error("Erreur retrait décodeur :", error);
-        alert(error.message || "Impossible de retirer le décodeur.");
-    }
-}
-
-async function openAssignModal(idDecodeur, adresseIp) {
-    try {
-        selectedDecodeurId = idDecodeur;
-
-        const modal = document.getElementById("assign-modal");
-        const select = document.getElementById("client-select");
-        const text = document.getElementById("assign-modal-text");
-
-        if (!modal || !select || !text) {
-            console.error("Éléments de modale introuvables");
-            return;
-        }
-
-        text.textContent = `Choisissez un client pour le décodeur ${adresseIp}.`;
-        select.innerHTML = `<option value="">-- Sélectionner un client --</option>`;
-
-        clientsCache = await fetchClients();
-
-        clientsCache.forEach(client => {
-            const option = document.createElement("option");
-            option.value = client.id;
-            option.textContent = client.nomClient;
-            select.appendChild(option);
-        });
-
-        modal.classList.remove("hidden");
-    } catch (error) {
-        console.error("Erreur ouverture modale assignation :", error);
-        alert("Impossible de charger la liste des clients.");
-    }
+  document.getElementById("assign-modal").classList.remove("hidden");
 }
 
 function closeAssignModal() {
-    const modal = document.getElementById("assign-modal");
-    const select = document.getElementById("client-select");
-
-    selectedDecodeurId = null;
-
-    if (select) {
-        select.value = "";
-    }
-
-    if (modal) {
-        modal.classList.add("hidden");
-    }
+  selectedDecodeurId = null;
+  document.getElementById("assign-modal").classList.add("hidden");
+  document.getElementById("client-select").value = "";
 }
 
-async function confirmAssignDecoder() {
-    const select = document.getElementById("client-select");
-
-    if (!selectedDecodeurId) {
-        alert("Aucun décodeur sélectionné.");
-        return;
-    }
-
-    if (!select || !select.value) {
-        alert("Veuillez sélectionner un client.");
-        return;
-    }
-
-    const clientId = select.value;
-
-    try {
-        const response = await fetch(`http://localhost:8080/api/decoder/assign/${selectedDecodeurId}/assigner/${clientId}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json"
-            }
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.message || "Erreur lors de l'assignation du décodeur.");
-        }
-
-        if (result.success === false) {
-            alert(result.message || "Impossible d'assigner le décodeur.");
-            return;
-        }
-
-        alert(result.message || "Décodeur assigné avec succès.");
-        closeAssignModal();
-        await loadDecodersPage();
-    } catch (error) {
-        console.error("Erreur assignation décodeur :", error);
-        alert(error.message || "Impossible d'assigner le décodeur.");
-    }
+async function confirmAssign() {
+  const clientId = document.getElementById("client-select").value;
+  if (!selectedDecodeurId || !clientId) { showNotif("Sélectionnez un client.", true); return; }
+  try {
+    const res  = await fetch(`${API}/api/decoder/assign/${selectedDecodeurId}/assigner/${clientId}`, { method: "PUT" });
+    const data = await res.json();
+    showNotif(data.message || "Assigné.", !data.success);
+    closeAssignModal();
+    if (data.success) loadPage();
+  } catch { showNotif("Erreur lors de l'assignation.", true); }
 }
 
-async function loadDecodersPage() {
-    try {
-        const [assigned, available] = await Promise.all([
-            fetchAssignedDecoders(),
-            fetchAvailableDecoders()
-        ]);
-
-        renderAssignedDecoders(assigned);
-        renderAvailableDecoders(available);
-    } catch (error) {
-        console.error("Erreur chargement page décodeurs :", error);
-
-        const assignedGrid = document.getElementById("assigned-grid");
-        const availableGrid = document.getElementById("available-grid");
-
-        if (assignedGrid) {
-            assignedGrid.innerHTML = `<div class="empty-state">Erreur lors du chargement.</div>`;
-        }
-
-        if (availableGrid) {
-            availableGrid.innerHTML = `<div class="empty-state">Erreur lors du chargement.</div>`;
-        }
-    }
-}
-
-document.addEventListener("DOMContentLoaded", function () {
-    loadDecodersPage();
-
-    const modal = document.getElementById("assign-modal");
-    if (modal) {
-        modal.addEventListener("click", function (event) {
-            if (event.target === modal) {
-                closeAssignModal();
-            }
-        });
-    }
+document.addEventListener("DOMContentLoaded", () => {
+  loadPage();
+  document.getElementById("assign-modal").addEventListener("click", e => {
+    if (e.target === document.getElementById("assign-modal")) closeAssignModal();
+  });
 });

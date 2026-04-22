@@ -1,254 +1,135 @@
-function goBack() {
-    window.history.back();
+const API = "http://localhost:8080";
+
+function logout() { localStorage.clear(); window.location.href = "../index.html"; }
+
+function getClientId() {
+  return new URLSearchParams(window.location.search).get("idClient");
 }
 
-function getClientIdFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("idClient");
+function showNotif(msg, isErr = false) {
+  document.querySelector(".notification")?.remove();
+  const n = document.createElement("div");
+  n.className = "notification" + (isErr ? " error" : "");
+  n.innerHTML = `<i class="fas fa-${isErr ? "exclamation-circle" : "check-circle"}"></i> ${msg}`;
+  document.body.appendChild(n);
+  setTimeout(() => { n.style.opacity = "0"; setTimeout(() => n.remove(), 500); }, 4000);
 }
 
-function isDecoderOnline(etat) {
-    return etat === "EN_LIGNE";
+function statusBadge(etat) {
+  const online = etat === "EN_LIGNE";
+  return `<span class="status-badge ${online ? "online" : "offline"}">${online ? "En ligne" : "Hors ligne"}</span>`;
 }
 
-function getStatusLabel(etat) {
-    return isDecoderOnline(etat) ? "En ligne" : "Hors ligne";
-}
+function renderDecoders(data) {
+  document.getElementById("breadcrumb-client").textContent = data.nomClient || "Client";
+  document.getElementById("page-title").textContent        = `Décodeurs — ${data.nomClient}`;
+  document.getElementById("page-subtitle").textContent     = `Client #${data.idClient} · ${data.decodeurs?.length ?? 0} décodeur${data.decodeurs?.length !== 1 ? "s" : ""} assigné${data.decodeurs?.length !== 1 ? "s" : ""}`;
+  document.getElementById("decoder-count").textContent     = data.decodeurs?.length ?? 0;
 
-function getStatusClass(etat) {
-    return isDecoderOnline(etat) ? "online" : "offline";
-}
+  const grid = document.getElementById("decoder-grid");
 
-async function fetchClientDecoders(idClient) {
-    const response = await fetch(`http://localhost:8080/api/admin/clients/${idClient}/decodeurs`, {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json"
-        }
-    });
+  if (!data.decodeurs?.length) {
+    grid.innerHTML = `<div class="empty-state"><i class="fas fa-tv" style="display:block;font-size:22px;margin-bottom:8px"></i>Aucun décodeur assigné à ce client.</div>`;
+    return;
+  }
 
-    if (!response.ok) {
-        throw new Error("Impossible de charger les décodeurs du client");
-    }
+  grid.innerHTML = data.decodeurs.map(dec => {
+    const chainesHtml = dec.chaines?.length
+      ? dec.chaines.map(ch => `
+          <li class="chaine-item">
+            <span>${ch}</span>
+            <button class="btn-danger btn-sm" onclick="retirerChaine(${dec.id}, '${ch.replace(/'/g,"\\'")}')">
+              <i class="fas fa-times"></i>
+            </button>
+          </li>`).join("")
+      : `<li class="chaine-item empty"><i class="fas fa-info-circle" style="margin-right:6px"></i>Aucune chaîne</li>`;
 
-    return await response.json();
-}
-
-function renderClientDecoders(data) {
-    const title = document.getElementById("client-title");
-    const subtitle = document.getElementById("client-subtitle");
-    const grid = document.getElementById("decoder-grid");
-
-    if (!title || !subtitle || !grid) {
-        console.error("Un ou plusieurs éléments HTML sont introuvables.");
-        return;
-    }
-
-    title.textContent = `Décodeurs de ${data.nomClient || "ce client"}`;
-    subtitle.textContent = `Client #${data.idClient}`;
-
-    grid.innerHTML = "";
-
-    if (!Array.isArray(data.decodeurs) || data.decodeurs.length === 0) {
-        grid.innerHTML = `<p class="error">Aucun décodeur lié à ce client.</p>`;
-        return;
-    }
-
-    data.decodeurs.forEach(dec => {
-        const statusLabel = getStatusLabel(dec.etat);
-        const statusClass = getStatusClass(dec.etat);
-
-        const chainesHtml = Array.isArray(dec.chaines) && dec.chaines.length > 0
-            ? dec.chaines.map(chaine => `
-                <li class="chaine-item">
-                    <span>${chaine}</span>
-                    <button type="button" class="btn-danger btn-sm" onclick="retirerChaine(${dec.id}, '${chaine.replace(/'/g, "\\'")}')">
-                        Retirer
-                    </button>
-                </li>
-            `).join("")
-            : `<li class="chaine-item empty">Aucune chaîne</li>`;
-
-        const card = `
-            <div class="decoder-card">
-                <div class="card-header">
-                    <span class="ip-address">${dec.adresseIp}</span>
-                    <span class="status-badge ${statusClass}">
-                        ${statusLabel}
-                    </span>
-                </div>
-
-                <div class="card-details">
-                    <p><strong>ID :</strong> ${dec.id}</p>
-                </div>
-
-                <div class="decoder-chaines">
-                    <h4>Chaînes associées</h4>
-                    <ul class="chaine-list">
-                        ${chainesHtml}
-                    </ul>
-                </div>
-
-                <div class="decoder-actions">
-                    <input 
-                        type="text" 
-                        id="chaine-input-${dec.id}" 
-                        class="chaine-input" 
-                        placeholder="Nom de la chaîne"
-                    />
-                    <div class="action-buttons">
-                        <button type="button" class="btn-primary" onclick="ajouterChaine(${dec.id})">
-                            Ajouter chaîne
-                        </button>
-                        <button type="button" class="btn-danger" onclick="retirerDecodeurDuClient(${dec.id})">
-                            Retirer le décodeur
-                        </button>
-                    </div>
-                </div>
+    return `
+      <div class="decoder-card">
+        <div class="decoder-top">
+          <div class="decoder-left">
+            <div class="decoder-icon"><i class="fas fa-tv"></i></div>
+            <div>
+              <p class="decoder-ip">${dec.adresseIp}</p>
+              <p class="decoder-client">ID #${dec.id}</p>
             </div>
-        `;
+          </div>
+          ${statusBadge(dec.etat)}
+        </div>
 
-        grid.innerHTML += card;
-    });
+        <div class="decoder-chaines">
+          <h4><i class="fas fa-list" style="margin-right:5px"></i>Chaînes associées</h4>
+          <ul class="chaine-list">${chainesHtml}</ul>
+        </div>
+
+        <div class="decoder-actions" style="flex-direction:column;gap:8px">
+          <div style="display:flex;gap:8px">
+            <input type="text" class="chaine-input" id="chaine-${dec.id}" placeholder="Nom de la chaîne…" style="flex:1">
+            <button class="btn-primary btn-sm" onclick="ajouterChaine(${dec.id})">
+              <i class="fas fa-plus"></i> Ajouter
+            </button>
+          </div>
+          <button class="btn-danger btn-sm" style="width:100%" onclick="retirerDecodeur(${dec.id})">
+            <i class="fas fa-unlink"></i> Retirer le décodeur
+          </button>
+        </div>
+      </div>`;
+  }).join("");
 }
 
-async function loadClientDecoders() {
-    const grid = document.getElementById("decoder-grid");
-    const idClient = getClientIdFromUrl();
-
-    if (!idClient) {
-        if (grid) {
-            grid.innerHTML = `<p class="error">Aucun idClient trouvé dans l'URL.</p>`;
-        }
-        return;
-    }
-
-    if (grid) {
-        grid.innerHTML = `<p>Chargement des décodeurs...</p>`;
-    }
-
-    try {
-        const data = await fetchClientDecoders(idClient);
-        renderClientDecoders(data);
-    } catch (error) {
-        console.error("Erreur lors du chargement des décodeurs :", error);
-        if (grid) {
-            grid.innerHTML = `<p class="error">${error.message}</p>`;
-        }
-    }
+async function loadDecoders() {
+  const idClient = getClientId();
+  if (!idClient) {
+    document.getElementById("decoder-grid").innerHTML = `<div class="empty-state error-text">Aucun client spécifié dans l'URL.</div>`;
+    return;
+  }
+  try {
+    const data = await fetch(`${API}/api/admin/clients/${idClient}/decodeurs`).then(r => r.json());
+    renderDecoders(data);
+  } catch (e) {
+    document.getElementById("decoder-grid").innerHTML = `<div class="empty-state error-text">Impossible de charger les décodeurs.</div>`;
+  }
 }
 
-/**
- * Actions branchées plus tard
- */
-async function retirerDecodeurDuClient(idDecodeur) {
-    const confirmation = confirm("Voulez-vous vraiment retirer ce décodeur du client ?");
-
-    if (!confirmation) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`http://localhost:8080/api/decoder/retirer/${idDecodeur}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json"
-            }
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.message || "Erreur lors du retrait du décodeur.");
-        }
-
-        alert(result.message || "Décodeur retiré du client avec succès.");
-        await loadClientDecoders();
-    } catch (error) {
-        console.error("Erreur lors du retrait du décodeur :", error);
-        alert(error.message || "Impossible de retirer le décodeur.");
-    }
+async function retirerDecodeur(id) {
+  if (!confirm("Retirer ce décodeur du client ?")) return;
+  try {
+    const res  = await fetch(`${API}/api/decoder/retirer/${id}`, { method: "PUT" });
+    const data = await res.json();
+    showNotif(data.message || "Décodeur retiré.", !data.succes);
+    if (data.succes) loadDecoders();
+  } catch { showNotif("Erreur lors du retrait.", true); }
 }
 
 async function ajouterChaine(idDecodeur) {
-    const input = document.getElementById(`chaine-input-${idDecodeur}`);
-    const chaine = input ? input.value.trim() : "";
+  const input  = document.getElementById(`chaine-${idDecodeur}`);
+  const chaine = input?.value.trim();
+  if (!chaine) { showNotif("Entrez un nom de chaîne.", true); return; }
 
-    if (!chaine) {
-        alert("Veuillez entrer une chaîne.");
-        return;
-    }
-
-    try {
-        const response = await fetch("http://localhost:8080/api/decoder/ajouterChaine", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                idDecodeur: idDecodeur,
-                chaine: chaine
-            })
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.message || "Erreur lors de l'ajout de la chaîne.");
-        }
-
-        if (result.success === false) {
-            alert(result.message || "Impossible d'ajouter la chaîne.");
-            return;
-        }
-
-        alert(result.message || "Chaîne ajoutée avec succès.");
-        input.value = "";
-        await loadClientDecoders();
-    } catch (error) {
-        console.error("Erreur lors de l'ajout de la chaîne :", error);
-        alert(error.message || "Impossible d'ajouter la chaîne.");
-    }
+  try {
+    const res  = await fetch(`${API}/api/decoder/ajouterChaine`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idDecodeur, chaine })
+    });
+    const data = await res.json();
+    showNotif(data.message || "Chaîne ajoutée.", !data.succes);
+    if (data.succes) { input.value = ""; loadDecoders(); }
+  } catch { showNotif("Erreur lors de l'ajout.", true); }
 }
 
 async function retirerChaine(idDecodeur, chaine) {
-    const confirmation = confirm(`Voulez-vous vraiment retirer la chaîne "${chaine}" ?`);
-
-    if (!confirmation) {
-        return;
-    }
-
-    try {
-        const response = await fetch("http://localhost:8080/api/decoder/retirerChaine", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                idDecodeur: idDecodeur,
-                chaine: chaine
-            })
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.message || "Erreur lors du retrait de la chaîne.");
-        }
-
-        if (result.success === false) {
-            alert(result.message || "Impossible de retirer la chaîne.");
-            return;
-        }
-
-        alert(result.message || "Chaîne retirée avec succès.");
-        await loadClientDecoders();
-    } catch (error) {
-        console.error("Erreur lors du retrait de la chaîne :", error);
-        alert(error.message || "Impossible de retirer la chaîne.");
-    }
+  if (!confirm(`Retirer la chaîne « ${chaine} » ?`)) return;
+  try {
+    const res  = await fetch(`${API}/api/decoder/retirerChaine`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idDecodeur, chaine })
+    });
+    const data = await res.json();
+    showNotif(data.message || "Chaîne retirée.", !data.succes);
+    if (data.succes) loadDecoders();
+  } catch { showNotif("Erreur lors du retrait.", true); }
 }
 
-document.addEventListener("DOMContentLoaded", async function () {
-    await loadClientDecoders();
-});
+document.addEventListener("DOMContentLoaded", loadDecoders);
