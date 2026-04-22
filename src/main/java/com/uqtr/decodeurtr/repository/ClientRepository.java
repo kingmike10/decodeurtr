@@ -4,12 +4,14 @@ import com.uqtr.decodeurtr.entity.Client;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
-
+/**
+ * Repository Spring Data JPA pour l'entité Client.
+ *
+ * Fournit les opérations CRUD standard via JpaRepository :
+ * findById, findAll, save, delete, etc.
+ * Aucune requête personnalisée n'est nécessaire pour l'instant —
+ * les besoins actuels sont couverts par les méthodes héritées.
+ */
 @Repository
-public interface ClientRepository  extends JpaRepository<Client, Long> {
-        boolean existsByNomClientAndAdresse(String nomClient, String adresse);
-
+public interface ClientRepository extends JpaRepository<Client, Long> {
 }
-

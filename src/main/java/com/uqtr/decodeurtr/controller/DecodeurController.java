@@ -33,7 +33,7 @@ public class DecodeurController {
         this.decodeurService = decodeurService;
     }
 
-    // ── Opérations physiques (simulateur) ────────────────────────────────────
+    // Opérations physiques (simulateur)
 
     /**
      * Retourne l'état temps réel d'un décodeur depuis le simulateur
@@ -77,7 +77,7 @@ public class DecodeurController {
         return ResponseEntity.ok(decodeurService.shutdownDecoder(idDecodeur));
     }
 
-    // ── Gestion de l'assignation ──────────────────────────────────────────────
+    // Gestion de l'assignation
 
     /**
      * Retourne tous les décodeurs actuellement assignés à un client.
@@ -132,7 +132,7 @@ public class DecodeurController {
         return ResponseEntity.ok(decodeurService.removeDecoder(idDecodeur));
     }
 
-    // ── Gestion des chaînes ───────────────────────────────────────────────────
+    // Gestion des chaînes
 
     /**
      * Retourne la liste des chaînes associées à un décodeur.

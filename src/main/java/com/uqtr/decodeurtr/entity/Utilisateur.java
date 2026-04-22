@@ -4,6 +4,13 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * Entité représentant un compte utilisateur du système.
+ *
+ * Deux rôles coexistent : ADMIN (accès complet) et CLIENT (accès limité
+ * à ses propres décodeurs). Un compte CLIENT est toujours lié à un client
+ * institutionnel ; un compte ADMIN n'a pas de client associé.
+ */
 @Entity
 @Getter
 @Setter
@@ -18,24 +25,29 @@ public class Utilisateur {
     @Column(name = "identifiant_connexion", nullable = false, unique = true, length = 100)
     private String identifiantConnexion;
 
-    @Column(name = "mot_de_passe", nullable = false, length = 255)
+    /** Stocké sous forme de hash BCrypt — jamais en clair. */
+    @Column(name = "mot_de_passe", nullable = false)
     private String motDePasse;
 
+    /** Valeurs possibles : "ADMIN" ou "CLIENT". */
     @Column(name = "role", nullable = false, length = 50)
     private String role;
 
+    /** Un compte inactif est refusé à la connexion sans être supprimé. */
     @Column(name = "actif", nullable = false)
     private Boolean actif = true;
 
-
-    @Column(name = "question_secrete", nullable = true, length = 255)
+    /** Question secrète pour la récupération de mot de passe (ADMIN uniquement). */
+    @Column(name = "question_secrete")
     private String questionSecrete;
 
-    @Column(name = "reponse_secrete", nullable = true, length = 255)
-    private String reponseSecrete; // hashée avec BCrypt
+    /** Réponse hashée avec BCrypt, normalisée en minuscules avant hashage. */
+    @Column(name = "reponse_secrete")
+    private String reponseSecrete;
 
+    /** Null pour un compte ADMIN, obligatoirement renseigné pour un CLIENT. */
     @OneToOne
-    @JoinColumn(name = "id_client", nullable = true)
+    @JoinColumn(name = "id_client")
     private Client client;
 
     public Utilisateur() {}

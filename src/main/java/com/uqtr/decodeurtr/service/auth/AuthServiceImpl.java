@@ -21,7 +21,7 @@ public class AuthServiceImpl implements AuthService{
         this.passwordEncoder = passwordEncoder;
     }
 
-    // ── Authentification ──────────────────────────────────────────────────────
+    // Authentification
 
     public LoginResponseDTO authentifier(LoginRequestDTO dto) {
         Optional<Utilisateur> opt =
@@ -42,14 +42,12 @@ public class AuthServiceImpl implements AuthService{
                 u.getRole(), u.getIdentifiantConnexion());
     }
 
-    // ── Étape 1 : retourner la question secrète ───────────────────────────────
+    // Étape 1 : retourner la question secrète
 
     public GetQuestionResponseDTO getQuestionSecrete(String identifiantConnexion) {
         Optional<Utilisateur> opt =
                 utilisateurRepository.findByIdentifiantConnexion(identifiantConnexion);
 
-        // SÉCURITÉ : message identique que l'identifiant existe ou non
-        // → empêche l'énumération de comptes
         if (opt.isEmpty() || opt.get().getQuestionSecrete() == null
                 || opt.get().getQuestionSecrete().isBlank()) {
             return new GetQuestionResponseDTO(false, null,
@@ -59,7 +57,7 @@ public class AuthServiceImpl implements AuthService{
         return new GetQuestionResponseDTO(true, opt.get().getQuestionSecrete(), null);
     }
 
-    // ── Étape 2 : vérifier la réponse et réinitialiser le mot de passe ────────
+    //  Étape 2 : vérifier la réponse et réinitialiser le mot de passe
 
     @Transactional
     public ResetMotDePasseResponseDTO resetMotDePasse(ResetMotDePasseRequestDTO req) {
@@ -78,8 +76,7 @@ public class AuthServiceImpl implements AuthService{
         Optional<Utilisateur> opt =
                 utilisateurRepository.findByIdentifiantConnexion(req.getIdentifiantConnexion());
 
-        // SÉCURITÉ : "Réponse incorrecte" même si l'identifiant est inconnu
-        // → ne pas révéler si le compte existe
+        // SÉCURITÉ : "Réponse incorrecte" même si l'identifiant est inconnu pour éviter de révéler l'existence d'un compte
         if (opt.isEmpty())
             return new ResetMotDePasseResponseDTO(false, "Réponse incorrecte.");
 
