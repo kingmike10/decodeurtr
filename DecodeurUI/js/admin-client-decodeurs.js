@@ -1,11 +1,14 @@
 const API = "http://localhost:8080";
 
+// Déconnecte l'utilisateur en vidant localStorage et en redirigeant vers index.html
 function logout() { localStorage.clear(); window.location.href = "../index.html"; }
 
+// Récupère l'ID du client depuis les paramètres de requête de l'URL
 function getClientId() {
   return new URLSearchParams(window.location.search).get("idClient");
 }
 
+// Affiche un message de notification sur la page, avec un style d'erreur optionnel
 function showNotif(msg, isErr = false) {
   document.querySelector(".notification")?.remove();
   const n = document.createElement("div");
@@ -15,11 +18,13 @@ function showNotif(msg, isErr = false) {
   setTimeout(() => { n.style.opacity = "0"; setTimeout(() => n.remove(), 500); }, 4000);
 }
 
+// Retourne une chaîne HTML pour un badge de statut basé sur l'état du décodeur
 function statusBadge(etat) {
   const online = etat === "EN_LIGNE";
   return `<span class="status-badge ${online ? "online" : "offline"}">${online ? "En ligne" : "Hors ligne"}</span>`;
 }
 
+// Rend la liste des décodeurs pour le client dans l'interface utilisateur
 function renderDecoders(data) {
   document.getElementById("breadcrumb-client").textContent = data.nomClient || "Client";
   document.getElementById("page-title").textContent        = `Décodeurs — ${data.nomClient}`;
@@ -77,6 +82,7 @@ function renderDecoders(data) {
   }).join("");
 }
 
+// Charge et affiche les décodeurs pour le client actuel depuis l'API
 async function loadDecoders() {
   const idClient = getClientId();
   if (!idClient) {
@@ -91,6 +97,7 @@ async function loadDecoders() {
   }
 }
 
+// Retire un décodeur du client après confirmation
 async function retirerDecodeur(id) {
   if (!confirm("Retirer ce décodeur du client ?")) return;
   try {
@@ -101,6 +108,7 @@ async function retirerDecodeur(id) {
   } catch { showNotif("Erreur lors du retrait.", true); }
 }
 
+// Ajoute une chaîne à un décodeur
 async function ajouterChaine(idDecodeur) {
   const input  = document.getElementById(`chaine-${idDecodeur}`);
   const chaine = input?.value.trim();
@@ -118,6 +126,7 @@ async function ajouterChaine(idDecodeur) {
   } catch { showNotif("Erreur lors de l'ajout.", true); }
 }
 
+// Retire une chaîne d'un décodeur après confirmation
 async function retirerChaine(idDecodeur, chaine) {
   if (!confirm(`Retirer la chaîne « ${chaine} » ?`)) return;
   try {
