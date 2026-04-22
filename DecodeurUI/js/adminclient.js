@@ -1,7 +1,9 @@
 const API = "http://localhost:8080";
 let clientsCache = [];
 
+// Déconnecte l'utilisateur en vidant le localStorage et redirige vers la page d'accueil
 function logout() { localStorage.clear(); window.location.href = "../index.html"; }
+// Affiche une notification avec un message, optionnellement en erreur
 
 function showNotif(msg, isErr = false) {
   document.querySelector(".notification")?.remove();
@@ -10,6 +12,7 @@ function showNotif(msg, isErr = false) {
   n.innerHTML = `<i class="fas fa-${isErr ? "exclamation-circle" : "check-circle"}"></i> ${msg}`;
   document.body.appendChild(n);
   setTimeout(() => { n.style.opacity = "0"; setTimeout(() => n.remove(), 500); }, 4000);
+// Charge et affiche la liste des clients depuis l'API
 }
 
 async function loadClients() {
@@ -49,6 +52,7 @@ async function loadClients() {
     `).join("");
   } catch (e) {
     tbody.innerHTML = `<tr><td colspan="5" class="error-text">Impossible de charger les clients.</td></tr>`;
+// Supprime un client après confirmation
   }
 }
 
@@ -64,7 +68,9 @@ async function deleteClient(id) {
   } catch { showNotif("Erreur lors de la suppression.", true); }
 }
 
+// Ouvre la modal d'ajout de client
 // ── MODAL AJOUT ──────────────────────────────────────────────────────────────
+// Ferme la modal et réinitialise les champs
 const modal = document.getElementById("addModal");
 const msgEl = document.getElementById("modal-message");
 

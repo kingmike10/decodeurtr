@@ -1,10 +1,12 @@
 const API = "http://localhost:8080";
 
+// Déconnecte l'utilisateur en vidant le stockage local et en redirigeant vers la page d'accueil.
 function logout() {
   localStorage.clear();
   window.location.href = "../index.html";
 }
 
+// Charge le tableau de bord en récupérant les données des clients, décodeurs assignés et disponibles depuis l'API, puis met à jour les statistiques et la liste des clients récents.
 async function loadDashboard() {
   try {
     const [clients, assigned, available] = await Promise.all([
