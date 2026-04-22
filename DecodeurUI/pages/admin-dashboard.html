@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DecodeurTR — Tableau de bord</title>
+  <link rel="stylesheet" href="../css/admin.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round">
+          <rect x="2" y="5" width="20" height="14" rx="2"/>
+          <circle cx="7" cy="12" r="1.5" fill="#3b82f6" stroke="none"/>
+          <circle cx="12" cy="12" r="1.5" fill="#3b82f6" stroke="none"/>
+          <circle cx="17" cy="12" r="1.5" fill="#3b82f6" stroke="none"/>
+        </svg>
+      </div>
+      <div class="sidebar-brand-text">
+        <div class="sidebar-brand-name">DECODEUR<span>TR</span></div>
+        <div class="sidebar-brand-sub">Panneau administrateur</div>
+      </div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section-label">Navigation</div>
+
+    <nav class="sidebar-nav">
+      <a href="admin-dashboard.html" class="sidebar-link active">
+        <i class="fas fa-gauge-high"></i> Tableau de bord
+      </a>
+      <a href="admin-client.html" class="sidebar-link">
+        <i class="fas fa-users"></i> Clients
+      </a>
+      <a href="admin-decodeurs.html" class="sidebar-link">
+        <i class="fas fa-tv"></i> Décodeurs
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="sidebar-logout" onclick="logout()">
+        <i class="fas fa-sign-out-alt"></i> Déconnexion
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1 class="page-title">Tableau de bord</h1>
+        <p class="page-subtitle">Vue d'ensemble du parc de décodeurs</p>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <i class="fas fa-users stat-icon"></i>
+        <div class="stat-label">Clients total</div>
+        <div class="stat-value" id="stat-clients">—</div>
+      </div>
+      <div class="stat-card green">
+        <i class="fas fa-tv stat-icon"></i>
+        <div class="stat-label">Décodeurs assignés</div>
+        <div class="stat-value" id="stat-assigned">—</div>
+      </div>
+      <div class="stat-card">
+        <i class="fas fa-circle-check stat-icon"></i>
+        <div class="stat-label">Décodeurs disponibles</div>
+        <div class="stat-value" id="stat-available">—</div>
+      </div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-title-row">
+        <div>
+          <h2>Activité récente</h2>
+          <p>Derniers clients enregistrés</p>
+        </div>
+        <a href="admin-client.html" class="btn-secondary btn-sm">
+          <i class="fas fa-arrow-right"></i> Voir tous
+        </a>
+      </div>
+      <div class="table-wrapper">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Adresse</th>
+              <th>Décodeurs</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="recent-clients-body">
+            <tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:20px">Chargement…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+function logout() {
+  localStorage.clear();
+  window.location.href = "../index.html";
+}
+
+async function loadDashboard() {
+  try {
+    const [clients, assigned, available] = await Promise.all([
+      fetch("http://localhost:8080/api/admin/clients/all").then(r => r.json()),
+      fetch("http://localhost:8080/api/decoder/assigned").then(r => r.json()),
+      fetch("http://localhost:8080/api/decoder/available").then(r => r.json()),
+    ]);
+
+    document.getElementById("stat-clients").textContent   = clients.length;
+    document.getElementById("stat-assigned").textContent  = assigned.length;
+    document.getElementById("stat-available").textContent = available.length;
+
+    const tbody = document.getElementById("recent-clients-body");
+    const slice = clients.slice(0, 5);
+
+    if (!slice.length) {
+      tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:20px">Aucun client.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = slice.map(c => `
+      <tr>
+        <td><strong>${c.nomClient}</strong></td>
+        <td style="color:var(--text-soft)">${c.adresse}</td>
+        <td><span class="section-count">${c.decodeurIds?.length ?? 0}</span></td>
+        <td>
+          <a href="admin-client-decodeurs.html?idClient=${c.id}" class="btn-secondary btn-sm">
+            <i class="fas fa-tv"></i> Décodeurs
+          </a>
+        </td>
+      </tr>
+    `).join("");
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", loadDashboard);
+</script>
+</body>
+</html>

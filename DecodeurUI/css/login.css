@@ -1,0 +1,319 @@
+/* ===== RESET & BASE ===== */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg:          #070d1a;
+    --card:        #0f1a2e;
+    --border:      rgba(148, 163, 184, 0.18);
+    --accent:      #22c55e;
+    --accent-soft: rgba(34, 197, 94, 0.12);
+    --accent-glow: rgba(34, 197, 94, 0.3);
+    --text:        #e2e8f0;
+    --text-soft:   #94a3b8;
+    --danger:      #ef4444;
+    --font-mono:   'IBM Plex Mono', monospace;
+    --font-ui:     'Inter', system-ui, sans-serif;
+    --radius:      14px;
+    --transition:  0.2s ease;
+}
+
+body {
+    font-family: var(--font-ui);
+    background: var(--bg);
+    background-image:
+        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(34, 197, 94, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(37, 99, 235, 0.06) 0%, transparent 60%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: var(--text);
+}
+
+/* ===== WRAPPER ===== */
+.login-wrapper {
+    width: 100%;
+    max-width: 420px;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+/* ===== CARD ===== */
+.login-card {
+    width: 100%;
+    background: linear-gradient(145deg, rgba(15, 26, 46, 0.98), rgba(7, 13, 26, 0.99));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 36px 32px;
+    box-shadow:
+        0 0 0 1px rgba(34, 197, 94, 0.06),
+        0 24px 60px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* ===== BRAND ===== */
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+}
+
+.brand-icon {
+    width: 52px;
+    height: 52px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-glow);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.brand-name {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: var(--text);
+    line-height: 1;
+}
+
+.brand-name span { color: var(--accent); }
+
+.brand-sub {
+    font-size: 11px;
+    color: var(--text-soft);
+    margin-top: 5px;
+    letter-spacing: 0.03em;
+}
+
+/* ===== DIVIDER ===== */
+.divider {
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--border), transparent);
+    margin-bottom: 28px;
+}
+
+/* ===== FORM ===== */
+.form-group { margin-bottom: 18px; }
+
+.form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-soft);
+    margin-bottom: 8px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 11px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--font-ui);
+    transition: border-color var(--transition), box-shadow var(--transition);
+    outline: none;
+}
+
+.form-group input::placeholder { color: rgba(148, 163, 184, 0.4); }
+
+.form-group input:focus {
+    border-color: rgba(34, 197, 94, 0.5);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+    background: rgba(34, 197, 94, 0.03);
+}
+
+/* ===== LIEN MOT DE PASSE OUBLIÉ ===== */
+.form-options {
+    text-align: right;
+    margin-bottom: 14px;
+}
+
+.form-options a {
+    font-size: 12px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: color var(--transition);
+}
+
+.form-options a:hover { color: var(--text); }
+
+/* ===== MESSAGE ===== */
+.form-message {
+    font-size: 13px;
+    min-height: 20px;
+    margin-bottom: 14px;
+    text-align: center;
+}
+
+/* ===== BOUTONS ===== */
+button[type="submit"],
+button[type="button"] {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--font-ui);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: opacity var(--transition), transform var(--transition), box-shadow var(--transition);
+    box-shadow: 0 4px 16px rgba(34, 197, 94, 0.25);
+    letter-spacing: 0.02em;
+}
+
+button[type="submit"]:hover:not(:disabled),
+button[type="button"]:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(34, 197, 94, 0.35);
+}
+
+button[type="submit"]:disabled,
+button[type="button"]:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* ===== LOADER ===== */
+.loader {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+.hidden { display: none; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== FOOTER / LIEN RETOUR ===== */
+.footer-note {
+    font-size: 11px;
+    color: rgba(148, 163, 184, 0.35);
+    letter-spacing: 0.03em;
+    text-align: center;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: color var(--transition);
+}
+
+.back-link:hover { color: var(--text); }
+
+/* ===== INDICATEUR D'ÉTAPES (forgot-password) ===== */
+.steps-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+.step-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(148,163,184,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-soft);
+    transition: all 0.25s ease;
+    flex-shrink: 0;
+}
+
+.step-dot.active {
+    background: var(--accent-soft);
+    border-color: rgba(34,197,94,0.5);
+    color: var(--accent);
+}
+
+.step-dot.done {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.step-line {
+    width: 40px;
+    height: 1px;
+    background: rgba(148,163,184,0.2);
+}
+
+/* ===== ÉTAPES (forgot-password) ===== */
+.step { display: none; }
+.step.active { display: block; }
+
+/* ===== QUESTION BOX (forgot-password) ===== */
+.question-box {
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.25);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    font-size: 13px;
+    color: #93c5fd;
+    font-style: italic;
+    line-height: 1.5;
+}
+
+/* ===== SUCCÈS (forgot-password) ===== */
+.success-icon {
+    text-align: center;
+    font-size: 40px;
+    margin-bottom: 12px;
+}
+
+.success-title {
+    text-align: center;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 15px;
+}
+
+.success-sub {
+    text-align: center;
+    color: var(--text-soft);
+    font-size: 13px;
+    margin-bottom: 20px;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 480px) {
+    .login-card { padding: 28px 20px; }
+    .brand-name { font-size: 19px; }
+}

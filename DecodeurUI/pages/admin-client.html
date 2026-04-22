@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DecodeurTR — Clients</title>
+  <link rel="stylesheet" href="../css/admin.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round">
+          <rect x="2" y="5" width="20" height="14" rx="2"/>
+          <circle cx="7" cy="12" r="1.5" fill="#3b82f6" stroke="none"/>
+          <circle cx="12" cy="12" r="1.5" fill="#3b82f6" stroke="none"/>
+          <circle cx="17" cy="12" r="1.5" fill="#3b82f6" stroke="none"/>
+        </svg>
+      </div>
+      <div class="sidebar-brand-text">
+        <div class="sidebar-brand-name">DECODEUR<span>TR</span></div>
+        <div class="sidebar-brand-sub">Panneau administrateur</div>
+      </div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section-label">Navigation</div>
+
+    <nav class="sidebar-nav">
+      <a href="admin-dashboard.html" class="sidebar-link">
+        <i class="fas fa-gauge-high"></i> Tableau de bord
+      </a>
+      <a href="admin-client.html" class="sidebar-link active">
+        <i class="fas fa-users"></i> Clients
+      </a>
+      <a href="admin-decodeurs.html" class="sidebar-link">
+        <i class="fas fa-tv"></i> Décodeurs
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="sidebar-logout" onclick="logout()">
+        <i class="fas fa-sign-out-alt"></i> Déconnexion
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1 class="page-title">Clients</h1>
+        <p class="page-subtitle">Gestion de la liste des clients</p>
+      </div>
+      <button class="add-btn" id="openModal">
+        <i class="fas fa-plus"></i> Ajouter un client
+      </button>
+    </div>
+
+    <div class="section-block">
+      <div class="section-title-row">
+        <div>
+          <h2>Liste des clients</h2>
+          <p id="clients-count-label">Chargement…</p>
+        </div>
+        <span class="section-count" id="clients-count">—</span>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Adresse</th>
+              <th>Identifiant</th>
+              <th>Décodeurs</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="clients-tbody">
+            <tr><td colspan="5" style="color:var(--text-muted);text-align:center;padding:24px">Chargement…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL AJOUT CLIENT -->
+<div id="addModal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><i class="fas fa-user-plus" style="color:var(--accent);margin-right:8px"></i>Ajouter un client</h3>
+      <button class="close-btn" id="closeModal">&times;</button>
+    </div>
+    <div class="form-group">
+      <label>Nom du client</label>
+      <input type="text" id="f-nom" placeholder="Ex : Hôtel Le Bonne Entente">
+    </div>
+    <div class="form-group">
+      <label>Adresse</label>
+      <input type="text" id="f-adresse" placeholder="Ex : 3400 rue du Chemin-Sainte-Foy">
+    </div>
+    <div class="form-group">
+      <label>Identifiant de connexion</label>
+      <input type="text" id="f-identifiant" placeholder="Ex : hotel_entente">
+    </div>
+    <div class="form-group">
+      <label>Mot de passe</label>
+      <input type="password" id="f-mdp" placeholder="••••••••">
+    </div>
+    <p class="form-message" id="modal-message"></p>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="cancelModal">Annuler</button>
+      <button class="btn-primary" id="submitClient">
+        <i class="fas fa-check"></i> Enregistrer
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "http://localhost:8080";
+
+function logout() { localStorage.clear(); window.location.href = "../index.html"; }
+
+function showNotif(msg, isErr = false) {
+  document.querySelector(".notification")?.remove();
+  const n = document.createElement("div");
+  n.className = "notification" + (isErr ? " error" : "");
+  n.innerHTML = `<i class="fas fa-${isErr ? "exclamation-circle" : "check-circle"}"></i> ${msg}`;
+  document.body.appendChild(n);
+  setTimeout(() => { n.style.opacity = "0"; setTimeout(() => n.remove(), 500); }, 4000);
+}
+
+async function loadClients() {
+  const tbody = document.getElementById("clients-tbody");
+  try {
+    const res  = await fetch(`${API}/api/admin/clients/all`);
+    const data = await res.json();
+
+    document.getElementById("clients-count").textContent = data.length;
+    document.getElementById("clients-count-label").textContent =
+      `${data.length} client${data.length !== 1 ? "s" : ""} enregistré${data.length !== 1 ? "s" : ""}`;
+
+    if (!data.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted);text-align:center;padding:24px">Aucun client enregistré.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.map(c => `
+      <tr>
+        <td><strong>${c.nomClient}</strong></td>
+        <td style="color:var(--text-soft)">${c.adresse}</td>
+        <td style="font-family:var(--font-mono);font-size:12px;color:var(--text-soft)">${c.identifiantConnexion ?? "—"}</td>
+        <td><span class="section-count">${c.decodeurIds?.length ?? 0}</span></td>
+        <td>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <a href="admin-client-decodeurs.html?idClient=${c.id}" class="btn-secondary btn-sm">
+              <i class="fas fa-tv"></i> Décodeurs
+            </a>
+            <button class="btn-danger btn-sm" onclick="deleteClient(${c.id}, '${c.nomClient.replace(/'/g, "\\'")}')">
+              <i class="fas fa-trash"></i> Supprimer
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join("");
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5" class="error-text">Impossible de charger les clients.</td></tr>`;
+  }
+}
+
+async function deleteClient(id, nom) {
+  if (!confirm(`Supprimer le client « ${nom} » et tous ses liens ?`)) return;
+  try {
+    const res  = await fetch(`${API}/api/admin/clients/delete/${id}`, { method: "DELETE" });
+    const data = await res.json();
+    showNotif(data.message || "Client supprimé.", !data.success);
+    if (data.success) loadClients();
+  } catch { showNotif("Erreur lors de la suppression.", true); }
+}
+
+// MODAL AJOUT
+const modal = document.getElementById("addModal");
+const msgEl = document.getElementById("modal-message");
+
+function openModal()  { modal.classList.remove("hidden"); msgEl.textContent = ""; }
+function closeModal() {
+  modal.classList.add("hidden");
+  ["f-nom","f-adresse","f-identifiant","f-mdp"].forEach(id => document.getElementById(id).value = "");
+  msgEl.textContent = "";
+}
+
+document.getElementById("openModal").addEventListener("click", openModal);
+document.getElementById("closeModal").addEventListener("click", closeModal);
+document.getElementById("cancelModal").addEventListener("click", closeModal);
+modal.addEventListener("click", e => { if (e.target === modal) closeModal(); });
+
+document.getElementById("submitClient").addEventListener("click", async () => {
+  const nomClient            = document.getElementById("f-nom").value.trim();
+  const adresse              = document.getElementById("f-adresse").value.trim();
+  const identifiantConnexion = document.getElementById("f-identifiant").value.trim();
+  const motDePasse           = document.getElementById("f-mdp").value.trim();
+
+  if (!nomClient || !adresse || !identifiantConnexion || !motDePasse) {
+    msgEl.textContent = "Tous les champs sont obligatoires.";
+    msgEl.style.color = "var(--danger)";
+    return;
+  }
+
+  const btn = document.getElementById("submitClient");
+  btn.disabled = true;
+
+  try {
+    const res  = await fetch(`${API}/api/admin/clients/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nomClient, adresse, identifiantConnexion, motDePasse })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.success !== false) {
+      showNotif(data.message || "Client créé avec succès.");
+      setTimeout(() => { closeModal(); loadClients(); }, 500);
+    } else {
+      msgEl.textContent = data.message || "Erreur lors de la création.";
+      msgEl.style.color = "var(--danger)";
+    }
+  } catch {
+    msgEl.textContent = "Impossible de contacter le serveur.";
+    msgEl.style.color = "var(--danger)";
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.addEventListener("DOMContentLoaded", loadClients);
+</script>
+</body>
+</html>
